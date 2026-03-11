@@ -920,12 +920,15 @@
     <!-- Audio: 성공 비프음을 Web Audio API로 생성 -->
     <script>
         // ===== Configuration (하드코딩 - 변경 필요 시 아래 문자열 직접 수정) =====
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbwHFRnVhT9_pIxo5Lx4i-qjJMTUbvxGcl9FaivSnbiaVc2DaQ4NzjEpx9DEVNqFMY86/exec';
         const RESUME_DELAY = 3000; // 스캔 대기 시간 3초
 
         // URL에서 프로그램명 추출
         const urlParams = new URLSearchParams(window.location.search);
+        const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxCglmwMFNkM2lDTJqfsP1SX4cTWcei6ajEPOB_yHSV2RVcakIjtem_QDSWpDUnjI7T/exec';
+        const GAS_URL = urlParams.get('gasUrl') || DEFAULT_GAS_URL;
         const PROGRAM_NAME = urlParams.get('program') || '프로그램 미지정';
+        const RETURN_URL = urlParams.get('returnUrl') || '';
+        const RETURN_DELAY = Number(urlParams.get('returnDelay') || RESUME_DELAY);
 
         // ===== State =====
         const $ = id => document.getElementById(id);
@@ -1223,7 +1226,11 @@
                 }
 
                 addHistory(id, data);
-                scheduleResume();
+                if (data && data.success && RETURN_URL) {
+                    scheduleReturn(data);
+                } else {
+                    scheduleResume();
+                }
             };
 
             // 타임아웃 처리
@@ -1262,10 +1269,12 @@
             let displayName = '';
             let displayMsg = message || '';
 
-            const nameMatch = message ? message.match(/^(.+?)님/) : null;
+            const nameMatch = message ? message.match(/^(.+?)\uB2D8/) : null;
             if (nameMatch) {
                 displayName = nameMatch[1] + '님';
-                displayMsg = message.replace(/^.+?님/, '').replace(/^[은의이가] /, '');
+                displayMsg = message
+                    .replace(/^.+?\uB2D8/, '')
+                    .replace(/^\s*[\uC740\uC758\uC774\uAC00]\s*/, '');
             }
 
             card.className = 'result-card ' + type;
@@ -1273,11 +1282,11 @@
             if (type === 'success') {
                 icon.textContent = '✅';
                 name.textContent = displayName || '출석 완료';
-                msg.textContent = displayMsg || '출석이 완료되었습니다.';
+                msg.textContent = withReturnGuide_(displayMsg || '출석이 완료되었습니다.');
             } else if (type === 'duplicate') {
                 icon.textContent = '⚡';
                 name.textContent = displayName || '이미 출석';
-                msg.textContent = displayMsg || '이미 출석 처리되었습니다.';
+                msg.textContent = withReturnGuide_(displayMsg || '이미 출석 처리되었습니다.');
             } else {
                 icon.textContent = '❌';
                 name.textContent = '오류 발생';
@@ -1330,6 +1339,53 @@
             }, RESUME_DELAY);
         }
 
+        function withReturnGuide_(message) {
+            if (!RETURN_URL) return message;
+            return `${message} 잠시 후 메인 페이지로 돌아갑니다.`;
+        }
+
+        function buildReturnUrl_(data) {
+            if (!RETURN_URL) return '';
+
+            try {
+                const targetUrl = new URL(RETURN_URL, window.location.href);
+                targetUrl.searchParams.set('fromScanner', '1');
+                targetUrl.searchParams.set('scanMessage', data && data.message ? data.message : '출석 처리되었습니다.');
+                targetUrl.searchParams.set('scanSuccess', String(Boolean(data && data.success)));
+                targetUrl.searchParams.set('scanProgram', PROGRAM_NAME);
+                return targetUrl.toString();
+            } catch (err) {
+                console.error('Return URL build failed:', err);
+                return RETURN_URL;
+            }
+        }
+
+        function scheduleReturn(data) {
+            setStatus('메인 페이지로 돌아가는 중...', false);
+
+            setTimeout(async () => {
+                isProcessing = false;
+
+                if (scanner && isScanning) {
+                    try {
+                        await scanner.stop();
+                        scanner.clear();
+                    } catch (err) {
+                        console.warn('Failed to stop scanner before return:', err);
+                    }
+                    isScanning = false;
+                }
+
+                const targetUrl = buildReturnUrl_(data);
+                if (!targetUrl) {
+                    scheduleResume();
+                    return;
+                }
+
+                window.location.href = targetUrl;
+            }, RETURN_DELAY);
+        }
+
         // ===== Status =====
         function setStatus(text, active) {
             $('statusText').textContent = text;
@@ -1380,7 +1436,7 @@
             list.innerHTML = history.map(h => {
                 const icon = h.success ? '✅' : (h.message && h.message.includes('이미') ? '⚡' : '❌');
                 // 메시지에서 이름 추출
-                const nameMatch = h.message ? h.message.match(/^(.+?)님/) : null;
+                const nameMatch = h.message ? h.message.match(/^(.+?)\uB2D8/) : null;
                 const displayName = nameMatch ? nameMatch[1] : (h.id || '알 수 없음');
 
                 return `
