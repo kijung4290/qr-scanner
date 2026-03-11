@@ -717,18 +717,21 @@
 
         /* ===== Processing overlay ===== */
         .processing {
-            position: absolute;
+            position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(15, 23, 42, 0.82);
+            backdrop-filter: blur(4px);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 12px;
-            z-index: 10;
+            gap: 16px;
+            z-index: 9999;
             opacity: 0;
             pointer-events: none;
             transition: opacity .2s ease;
+            padding: 24px;
+            text-align: center;
         }
 
         .processing.show {
@@ -737,12 +740,14 @@
         }
 
         .processing-spinner {
-            width: 36px;
-            height: 36px;
+            width: 56px;
+            height: 56px;
             border-radius: 50%;
-            border: 3px solid rgba(255, 255, 255, 0.15);
-            border-top-color: var(--blue);
+            border: 4px solid rgba(255, 255, 255, 0.18);
+            border-top-color: #ffffff;
+            border-right-color: var(--blue);
             animation: spin .8s linear infinite;
+            box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.04);
         }
 
         @keyframes spin {
@@ -752,9 +757,11 @@
         }
 
         .processing-text {
-            font-size: 15px;
-            font-weight: 600;
+            font-size: 18px;
+            font-weight: 700;
             color: #fff;
+            line-height: 1.6;
+            white-space: pre-line;
         }
 
         /* ===== Camera Toggle ===== */
@@ -926,6 +933,10 @@
         const urlParams = new URLSearchParams(window.location.search);
         const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxCglmwMFNkM2lDTJqfsP1SX4cTWcei6ajEPOB_yHSV2RVcakIjtem_QDSWpDUnjI7T/exec';
         const GAS_URL = urlParams.get('gasUrl') || DEFAULT_GAS_URL;
+        const RETURN_URL = urlParams.get('returnUrl') || '';
+        const OPENER_ORIGIN = urlParams.get('openerOrigin') || '';
+        const RETURN_DELAY = 1800;
+        const REDIRECT_DELAY = 350;
         const PROGRAM_NAME = urlParams.get('program') || '통합 출석';
 
         // ===== State =====
@@ -1192,7 +1203,9 @@
             try {
                 const targetUrl = buildAttendanceUrl_(decodedText, targetId);
                 setStatus('출석 페이지로 이동 중...', true);
-                window.location.href = targetUrl;
+                window.setTimeout(() => {
+                    window.location.href = targetUrl;
+                }, REDIRECT_DELAY);
             } catch (err) {
                 console.error('Attendance redirect failed:', err);
                 $('processing').classList.remove('show');
@@ -1203,13 +1216,14 @@
 
         function buildAttendanceUrl_(decodedText, targetId) {
             const trimmedText = String(decodedText || '').trim();
-            if (isHttpUrl_(trimmedText)) {
-                return trimmedText;
+            const targetUrl = isHttpUrl_(trimmedText) ? new URL(trimmedText) : new URL(GAS_URL);
+            if (!isHttpUrl_(trimmedText)) {
+                targetUrl.searchParams.set('id', targetId);
             }
-
-            const fallbackUrl = new URL(GAS_URL);
-            fallbackUrl.searchParams.set('id', targetId);
-            return fallbackUrl.toString();
+            if (RETURN_URL) {
+                targetUrl.searchParams.set('returnUrl', RETURN_URL);
+            }
+            return targetUrl.toString();
         }
 
         function isHttpUrl_(value) {
