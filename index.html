@@ -926,10 +926,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxCglmwMFNkM2lDTJqfsP1SX4cTWcei6ajEPOB_yHSV2RVcakIjtem_QDSWpDUnjI7T/exec';
         const GAS_URL = urlParams.get('gasUrl') || DEFAULT_GAS_URL;
-        const PROGRAM_NAME = urlParams.get('program') || '프로그램 미지정';
-        const RETURN_URL = urlParams.get('returnUrl') || '';
-        const OPENER_ORIGIN = urlParams.get('openerOrigin') || '*';
-        const RETURN_DELAY = Number(urlParams.get('returnDelay') || RESUME_DELAY);
+        const PROGRAM_NAME = urlParams.get('program') || '통합 출석';
 
         // ===== State =====
         const $ = id => document.getElementById(id);
@@ -1188,8 +1185,35 @@
             $('processing').classList.add('show');
             document.querySelector('.processing-text').innerText = '인식됨: ' + targetId + '\n처리 중...';
 
-            // JSONP 호출
-            callGasJsonp(targetId);
+            redirectToAttendance_(decodedText, targetId);
+        }
+
+        function redirectToAttendance_(decodedText, targetId) {
+            try {
+                const targetUrl = buildAttendanceUrl_(decodedText, targetId);
+                setStatus('출석 페이지로 이동 중...', true);
+                window.location.href = targetUrl;
+            } catch (err) {
+                console.error('Attendance redirect failed:', err);
+                $('processing').classList.remove('show');
+                showResult('error', '출석 페이지로 이동하지 못했습니다. QR 주소를 확인해주세요.');
+                scheduleResume();
+            }
+        }
+
+        function buildAttendanceUrl_(decodedText, targetId) {
+            const trimmedText = String(decodedText || '').trim();
+            if (isHttpUrl_(trimmedText)) {
+                return trimmedText;
+            }
+
+            const fallbackUrl = new URL(GAS_URL);
+            fallbackUrl.searchParams.set('id', targetId);
+            return fallbackUrl.toString();
+        }
+
+        function isHttpUrl_(value) {
+            return /^https?:\/\//i.test(String(value || '').trim());
         }
 
         // ===== JSONP Communication =====
