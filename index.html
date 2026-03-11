@@ -870,15 +870,17 @@
 
                 <!-- 하단 안내 -->
                 <div
-                    style="padding: 14px 20px; display:flex; align-items:center; justify-content:center; gap:12px; border-top: 1px solid var(--border);">
-                    <button id="btnToggleScanBottom" onclick="toggleScanner()"
-                        style="background:none; border:none; color:var(--red); font-weight:700; font-size:15px; cursor:pointer; font-family:var(--font); display:none;">
-                        ⏹ 카메라 끄기
-                    </button>
-                    <button id="btnCameraSwitch" class="btn-camera-switch" onclick="switchCamera()">
-                        🔄 카메라 전환 <span class="camera-label" id="cameraLabel">후면</span>
-                    </button>
-                    <span id="scanHint" style="font-size:13px; color:var(--text-weak);">
+                    style="padding: 14px 16px; display:flex; flex-direction: column; align-items:center; justify-content:center; gap:12px; border-top: 1px solid var(--border);">
+                    <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:12px; width: 100%;">
+                        <button id="btnToggleScanBottom" onclick="toggleScanner()"
+                            style="background:rgba(255,59,48,0.1); border:none; color:var(--red); font-weight:700; font-size:15px; cursor:pointer; font-family:var(--font); display:none; padding:10px 16px; border-radius:12px; flex:1;">
+                            ⏹ 카메라 끄기
+                        </button>
+                        <button id="btnCameraSwitch" class="btn-camera-switch" onclick="switchCamera()" style="flex:1; justify-content:center; padding:10px 16px; border-radius:12px; font-size:14px;">
+                            🔄 카메라 <span class="camera-label" id="cameraLabel">후면</span>
+                        </button>
+                    </div>
+                    <span id="scanHint" style="font-size:13px; color:var(--text-weak); text-align:center;">
                         버튼을 눌러 카메라를 시작하세요
                     </span>
                 </div>
@@ -1180,6 +1182,7 @@
 
             setStatus('출석 처리 중...', true);
             $('processing').classList.add('show');
+            document.querySelector('.processing-text').innerText = '인식됨: ' + targetId + '\n처리 중...';
 
             // JSONP 호출
             callGasJsonp(targetId);
